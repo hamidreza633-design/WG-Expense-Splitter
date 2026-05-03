@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WG-Expense-Splitter v5.0</title>
+    <style>
+        :root {
+            --bg-color: #1e1e1e;
+            --container-bg: #2d2d2d;
+            --text-color: #ffffff;
+            --cyan: #00bcd4;
+            --green: #4caf50;
+            --red: #f44336;
+            --yellow: #ffeb3b;
+            --magenta: #e91e63;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+        }
+
+        .container {
+            background-color: var(--container-bg);
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+            max-width: 600px;
+            width: 100%;
+        }
+
+        h1, h2 {
+            text-align: center;
+            color: var(--green);
+            border-bottom: 2px solid var(--cyan);
+            padding-bottom: 10px;
+        }
+
+        h2 {
+            color: var(--cyan);
+            font-size: 1.2rem;
+            margin-top: 30px;
+        }
+
+        .input-group {
+            margin-bottom: 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        label {
+            flex: 1;
+        }
+
+        input {
+            flex: 1;
+            padding: 8px;
+            background-color: #444;
+            border: 1px solid #555;
+            color: white;
+            border-radius: 4px;
+        }
+
+        button {
+            background-color: var(--cyan);
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            cursor: pointer;
+            border-radius: 4px;
+            font-weight: bold;
+            width: 100%;
+            margin-top: 10px;
+            transition: 0.3s;
+        }
+
+        button:hover {
+            background-color: #008ba3;
+        }
+
+        .btn-calc {
+            background-color: var(--magenta);
+        }
+
+        .btn-calc:hover {
+            background-color: #c2185b;
+        }
+
+        .list-item {
+            background-color: #333;
+            padding: 10px;
+            margin-bottom: 5px;
+            border-radius: 4px;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        #abrechnung-result {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #222;
+            border-radius: 5px;
+            border-left: 4px solid var(--yellow);
+        }
+
+        .good { color: var(--green); }
+        .bad { color: var(--red); }
+        .neutral { color: var(--yellow); }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>💰 WG-EXPENSE-SPLITTER</h1>
+
+    <!-- Fixkosten Bereich -->
+    <h2>🏠 Fixkosten Setup</h2>
+    <div class="input-group">
+        <label>🏠 Miete gesamt (EUR):</label>
+        <input type="number" id="miete" value="0" min="0" step="0.01">
+    </div>
+    <div class="input-group">
+        <label>⚡ Strom/Gas (EUR):</label>
+        <input type="number" id="strom" value="0" min="0" step="0.01">
+    </div>
+    <div class="input-group">
+        <label>🌐 Internet (EUR):</label>
+        <input type="number" id="internet" value="0" min="0" step="0.01">
+    </div>
+    <div class="input-group">
+        <label>📺 Streaming (EUR):</label>
+        <input type="number" id="streaming" value="0" min="0" step="0.01">
+    </div>
+
+    <!-- Teilnehmer Bereich -->
+    <h2>👥 Mitbewohner hinzufügen</h2>
+    <div class="input-group">
+        <label>👤 Name:</label>
+        <input type="text" id="t-name" placeholder="Name eingeben">
+    </div>
+    <div class="input-group">
+        <label>🛒 Bereits gezahlt (EUR):</label>
+        <input type="number" id="t-ausgaben" value="0" min="0" step="0.01">
+    </div>
+    <button onclick="teilnehmerHinzufuegen()">Teilnehmer hinzufügen</button>
+
+    <h3>Aktuelle Teilnehmer</h3>
+    <div id="teilnehmer-liste">
+        <!-- Liste wird hier per JavaScript eingefügt -->
+    </div>
+
+    <!-- Abrechnung -->
+    <h2>📊 WG-Abrechnung</h2>
+    <button class="btn-calc" onclick="zeigeAbrechnung()">Abrechnung berechnen</button>
+
+    <div id="abrechnung-result" style="display: none;"></div>
+</div>
+
+<script>
+    // Unsere Datenstruktur
+    let wgGruppe = [];
+    const TOLERANCE = 0.01;
+
+    function teilnehmerHinzufuegen() {
+        const nameInput = document.getElementById('t-name');
+        const ausgabenInput = document.getElementById('t-ausgaben');
+        
+        const name = nameInput.value.trim();
+        const ausgaben = parseFloat(ausgabenInput.value) || 0;
+
+        if (name === "") {
+            alert("❌ Name darf nicht leer sein!");
+            return;
+        }
+
+        if (wgGruppe.some(t => t.name === name)) {
+            alert("⚠️ Teilnehmer existiert bereits!");
+            return;
+        }
+
+        wgGruppe.push({ name: name, individuelleAusgaben: ausgaben, balance: 0 });
+        
+        nameInput.value = "";
+        ausgabenInput.value = "0";
+        
+        updateTeilnehmerListe();
+    }
+
+    function teilnehmerLoeschen(index) {
+        wgGruppe.splice(index, 1);
+        updateTeilnehmerListe();
+    }
+
+    function updateTeilnehmerListe() {
+        const listeDiv = document.getElementById('teilnehmer-liste');
+        listeDiv.innerHTML = "";
+        
+        if (wgGruppe.length === 0) {
+            listeDiv.innerHTML = "<p>Keine Teilnehmer vorhanden.</p>";
+            return;
+        }
+
+        wgGruppe.forEach((t, index) => {
+            listeDiv.innerHTML += `
+                <div class="list-item">
+                    <span>👤 ${t.name}</span>
+                    <span>${t.individuelleAusgaben.toFixed(2)} EUR 
+                        <button onclick="teilnehmerLoeschen(${index})" style="background:transparent; color:#f44336; width:auto; padding:0; margin-left:10px;">🗑️</button>
+                    </span>
+                </div>
+            `;
+        });
+    }
+
+    function zeigeAbrechnung() {
+        const resultDiv = document.getElementById('abrechnung-result');
+        
+        if (wgGruppe.length === 0) {
+            alert("❌ Keine Teilnehmer vorhanden! Bitte fügen Sie zuerst Personen hinzu.");
+            return;
+        }
+
+        // Fixkosten auslesen
+        const miete = parseFloat(document.getElementById('miete').value) || 0;
+        const strom = parseFloat(document.getElementById('strom').value) || 0;
+        const internet = parseFloat(document.getElementById('internet').value) || 0;
+        const streaming = parseFloat(document.getElementById('streaming').value) || 0;
+        const fixkostenGesamt = miete + strom + internet + streaming;
+
+        const anzahl = wgGruppe.length;
+        let variableGesamt = 0;
+
+        wgGruppe.forEach(t => {
+            variableGesamt += t.individuelleAusgaben;
+        });
+
+        const gesamtKosten = fixkostenGesamt + variableGesamt;
+        const sollGesamt = gesamtKosten / anzahl;
+        const fixProKopf = fixkostenGesamt / anzahl;
+
+        // Balancen berechnen
+        let schulden = [];
+        let guthaben = [];
+
+        wgGruppe.forEach(t => {
+            t.balance = t.individuelleAusgaben - sollGesamt;
+            if (t.balance < -TOLERANCE) {
+                schulden.push({ name: t.name, betrag: Math.abs(t.balance) });
+            } else if (t.balance > TOLERANCE) {
+                guthaben.push({ name: t.name, betrag: t.balance });
+            }
+        });
+
+        // HTML für die Ausgabe generieren
+        let html = `
+            <h3 style="color: var(--cyan);">INDIVIDUELLE ENDABRECHNUNG:</h3>
+            <p>Gesamtkosten diesen Monat: <strong>${gesamtKosten.toFixed(2)} EUR</strong></p>
+            <p>Sollbetrag pro Person: <strong>${sollGesamt.toFixed(2)} EUR</strong></p>
+            <hr style="border-color: #555;">
+        `;
+
+        wgGruppe.forEach(t => {
+            let restzahlung = sollGesamt - t.individuelleAusgaben;
+            let status = "";
+            
+            if (restzahlung > TOLERANCE) {
+                status = `<span class="bad">Noch zu zahlen: ${restzahlung.toFixed(2)} EUR</span>`;
+            } else if (restzahlung < -TOLERANCE) {
+                status = `<span class="good">Bekommt zurück: ${Math.abs(restzahlung).toFixed(2)} EUR</span>`;
+            } else {
+                status = `<span class="neutral">Ausgeglichen</span>`;
+            }
+
+            html += `<p>👤 <strong>${t.name}</strong> (Schon bezahlt: ${t.individuelleAusgaben.toFixed(2)} EUR)<br>↳ ${status}</p>`;
+        });
+
+        // Ausgleichsvorschläge (Wer zahlt wem?)
+        html += `<hr style="border-color: #555;"><h3 style="color: var(--magenta);">💡 ZAHLUNGSVORSCHLÄGE:</h3>`;
+
+        if (schulden.length === 0 && guthaben.length === 0) {
+            html += `<p class="good">✓ Alle Konten sind ausgeglichen!</p>`;
+        } else {
+            // Sortieren wie im C++ Code
+            schulden.sort((a, b) => b.betrag - a.betrag);
+            guthaben.sort((a, b) => b.betrag - a.betrag);
+
+            let i = 0, j = 0;
+            while (i < schulden.length && j < guthaben.length) {
+                let betrag = Math.min(schulden[i].betrag, guthaben[j].betrag);
+
+                if (betrag > TOLERANCE) {
+                    html += `<p>💸 <strong>${schulden[i].name}</strong> zahlt an <strong>${guthaben[j].name}</strong>: ${betrag.toFixed(2)} EUR</p>`;
+                }
+
+                schulden[i].betrag -= betrag;
+                guthaben[j].betrag -= betrag;
+
+                if (schulden[i].betrag <= TOLERANCE) i++;
+                if (guthaben[j].betrag <= TOLERANCE) j++;
+            }
+        }
+
+        resultDiv.innerHTML = html;
+        resultDiv.style.display = "block";
+    }
+
+    // Initialisierung
+    updateTeilnehmerListe();
+</script>
+
+</body>
+</html>
